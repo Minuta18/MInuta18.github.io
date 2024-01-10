@@ -4,6 +4,23 @@
         <title>Mandelbrot set</title>
 
         <link rel="stylesheet" href="./Main.css">
+        <script id="shader-vs" type="x-shader/x-vertex">
+precision highp float;
+
+attribute vec2 a_Position;
+
+void main() {
+    gl_Position = vec4(a_Position.x, a_Position.y, 0.0, 1.0);
+}
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+precision highp float;
+
+void main() {
+    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+}
+        </script>
+
         <script
             src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
             integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
