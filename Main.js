@@ -1,17 +1,14 @@
 /* This code is partly copied from https://github.com/mdn/dom-examples/blob/main/webgl-examples/tutorial/sample3/webgl-demo.js */
 
 const vertexShaderSource = `
-attribute vec4 aVertexPosition;
-attribute vec4 aVertexColor;
+#version 330 core
+layout (location = 0) in vec3 aPos; // the position variable has attribute position 0
+  
+out vec4 vertexColor; // specify a color output to the fragment shader
 
-uniform mat4 uModelViewMatrix;
-uniform mat4 uProjectionMatrix;
-
-varying lowp vec4 vColor;
-
-void main(void) {
-    gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-    vColor = aVertexColor;
+void main() {
+    gl_Position = vec4(aPos, 1.0); // see how we directly give a vec3 to vec4's constructor
+    vertexColor = vec4(0.5, 0.0, 0.0, 1.0); // set the output variable to a dark-red color
 }
 `;
 
@@ -33,11 +30,14 @@ function createProjectionMatrix(canvas) {
 
 class WebGLRenderer {
     constructor(canvas) {
+        console.info("[WebGLRenderer] Starting WebGL renderer");
+
         this.canvas = canvas;
         this.glapi = this.initWebGL(this.canvas);
 
         if (!this.glapi) {
-            alert('Can not initialize WebGLRenderer.')
+            alert('Can not initialize WebGLRenderer.');
+            console.error('[WebGLRenderer] Can not initialize WebGLRenderer: Failed to initialize WebGL');
             throw new Error('Can not initialize WebGLRenderer');
         }
 
@@ -46,23 +46,10 @@ class WebGLRenderer {
 
         this.shader = this.loadShaders(vertexShaderSource, fragmentShaderSource);
 
-        this.programInfo = {
-            program: this.shader,
-            attribLocations: {
-                vertexPosition: this.glapi.getAttribLocation(this.shader, "aVertexPosition"),
-                vertexColor: this.glapi.getAttribLocation(this.shader, "aVertexColor"),
-            },
-            uniformLocations: {
-                projectionMatrix: this.glapi.getUniformLocation(
-                  this.shader,
-                  "uProjectionMatrix"
-                ),
-                viewMatrix: this.glapi.getUniformLocation(this.shader, "uModelViewMatrix"),
-            }
-        };
-
         this.initBuffers();
         this.drawScene();
+
+        console.info('[WebGLRenderer] Successfully initialized')
     }
 
     initWebGL(canvas) {
@@ -73,6 +60,7 @@ class WebGLRenderer {
         } catch (e) {}
 
         if (!gl) {
+            console.error('[WebGLRenderer] Failed to initialize WebGL. Is your browser support it?');
             alert("Unable to load WebGL. Your browser may not support it");
             gl = null;
         }
@@ -90,7 +78,8 @@ class WebGLRenderer {
         this.glapi.linkProgram(shaderProgram);
 
         if (!this.glapi.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            alert(`Unable to initialize the shader program: ${gl.getProgramInfoLog(shaderProgram)}`);
+            console.error(`[WebGLRenderer] Can't link shader program. Info log: ${ this.glapi.getProgramInfoLog(shaderProgram) }`);
+            alert(`Unable to initialize the shader program: ${ this.glapi.getProgramInfoLog(shaderProgram) }`);
             return null;
         }
         
@@ -98,38 +87,47 @@ class WebGLRenderer {
     }
 
     loadShader(source, type) {
+        let type_string = (this.glapi.VERTEX_SHADER == type) ? 'vertex' : 'fragment';
         let shader = this.glapi.createShader(type);
         this.glapi.shaderSource(shader, source);
         this.glapi.compileShader(shader);
 
         if (!this.glapi.getShaderParameter(shader, this.glapi.COMPILE_STATUS)) {
             alert(`An error occurred compiling the shaders: ${ this.glapi.getShaderInfoLog(shader) }`);
+            console.error(`[WebGLRenderer] failed to compile ${ type_string } shader: ${ this.glapi.getShaderInfoLog(shader) }`);
             this.glapi.deleteShader(shader);
             return null;
         }
+
+        console.info(`[WebGLRenderer] Compiled ${ type_string } shader`);
 
         return shader;
     }
 
     initBuffers() {
-        var vertices = [
-            0.0, 0.0, 0.0, -1.0, 
-            1.0, 1.0, 1.0, 1.0,
-        ];
-        var colors = [
-            1.0,  1.0,  1.0,  1.0,
-            1.0,  0.0,  0.0,  1.0,
-            0.0,  1.0,  0.0,  1.0,
-            0.0,  0.0,  1.0,  1.0,
-        ];
+        // var vertices = [
+        //     0.0, 0.0, 0.0, -1.0, 
+        //     1.0, 1.0, 1.0, 1.0,
+        // ];
+        // var colors = [
+        //     1.0,  1.0,  1.0,  1.0,
+        //     1.0,  0.0,  0.0,  1.0,
+        //     0.0,  1.0,  0.0,  1.0,
+        //     0.0,  0.0,  1.0,  1.0,
+        // ];
 
-        this.positionBuffer = this.glapi.createBuffer();
-        this.glapi.bindBuffer(this.glapi.ARRAY_BUFFER, this.positionBuffer);
-        this.glapi.bufferData(this.glapi.ARRAY_BUFFER, new Float32Array(vertices), this.glapi.STATIC_DRAW);
+        this.aVertexColorBuffer = this.createArrayBuffer('aVertexColor', 4, this.glapi.FLOAT);
+        this.aVertexPositionBuffer = this.createArrayBuffer('aVertexPosition', 4, this.glapi.FLOAT);
         
-        this.colorBuffer = this.glapi.createBuffer();
-        this.glapi.bindBuffer(this.glapi.ARRAY_BUFFER, this.colorBuffer);
-        this.glapi.bufferData(this.glapi.ARRAY_BUFFER, new Float32Array(colors), this.glapi.STATIC_DRAW);
+    }
+
+    createArrayBuffer(attribute, array_size, type) {
+        let buffer = this.glapi.createBuffer();
+        this.glapi.bindBuffer(this.glapi.ARRAY_BUFFER, buffer);
+        this.glapi.vertexAttribPointer(this.glapi.getAttribLocation(this.shader, attribute), array_size, type, false, 0, 0);
+        this.glapi.enableVertexAttribArray(this.glapi.getAttribLocation(this.shader, attribute));
+        console.log(`[WebGLRenderer] ${ attribute } ${ this.glapi.getAttribLocation(this.shader, attribute) }`)
+        return buffer;
     }
 
     drawScene() {
@@ -142,32 +140,17 @@ class WebGLRenderer {
         let projectionMat = createProjectionMatrix(this.canvas);
         let viewMat = mat4.create();
         mat4.translate(viewMat, viewMat, [0.0, 0.0, -6.0]);
-
-        this.setPositionAttribute(this.programInfo);
-        this.setColorAttribute(this.programInfo);
-
+       
+        this.glapi.uniformMatrix4fv(this.glapi.getUniformLocation(this.shader, 'uProjectionMatrix'), false, projectionMat);
+        this.glapi.uniformMatrix4fv(this.glapi.getUniformLocation(this.shader, 'uModelViewMatrix'), false, viewMat); 
+       
         this.glapi.useProgram(this.shader);
-
-        this.glapi.uniformMatrix4fv(this.programInfo.uniformLocations.projectionMatrix, false, projectionMat);
-        this.glapi.uniformMatrix4fv(this.programInfo.uniformLocations.viewMatrix, false, viewMat); 
         
         {
             const offset = 0;
             const vertexCount = 4;
             this.glapi.drawArrays(this.glapi.TRIANGLE_STRIP, offset, vertexCount);
         }
-    }
-
-    setColorAttribute() {
-        this.glapi.bindBuffer(this.glapi.ARRAY_BUFFER, this.colorBuffer);
-        this.glapi.vertexAttribPointer(this.programInfo.attribLocations.vertexColor, 4, this.glapi.FLOAT, false, 0, 0);
-        this.glapi.enableVertexAttribArray(this.programInfo.attribLocations.vertexColor);
-    }
-
-    setPositionAttribute() {
-        this.glapi.bindBuffer(this.glapi.ARRAY_BUFFER, this.positionBuffer);
-        this.glapi.vertexAttribPointer(this.programInfo.attribLocations.vertexPosition, 2, this.glapi.FLOAT, false, 0, 0);
-        this.glapi.enableVertexAttribArray(this.programInfo.attribLocations.vertexPosition);
     }
 }   
 
