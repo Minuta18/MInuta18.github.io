@@ -18,13 +18,13 @@ class WebGLRenderer {
 
         this.shader = this.loadShaders(vertexShaderSource, fragmentShaderSource);
         this.initBuffers();
+        this.initUniforms();
 
-        this.drawScene();
         console.info('[WebGLRenderer] Successfully initialized')
     }
 
     initWebGL(canvas) {
-        gl = null;
+        let gl = null;
 
         try {
             gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -89,18 +89,110 @@ class WebGLRenderer {
         this.glapi.vertexAttribPointer(this.position_attr, 2, this.glapi.FLOAT, false, 0, 0);
     }
 
-    drawScene() {
-        this.glapi.clearColor(0.0, 0.0, 0.0, 1.0);
-        this.glapi.clear(this.glapi.COLOR_BUFFER_BIT | this.glapi.DEPTH_BUFFER_BIT);
-        // console.log(`[WebGLRenderer] Shader link status: ${ this.glapi.getProgramParameter(this.shader, this.glapi.LINK_STATUS) } `);
-        this.glapi.drawArrays(this.glapi.TRIANGLES, 0, 3);
+    initUniforms() {
+        this.max_iterations_uniform = this.glapi.getUniformLocation(this.shader, 'u_MaxIterations');
+        this.zoom_center = this.glapi.getUniformLocation(this.shader, 'u_ZoomCenter');
+        this.zoom = this.glapi.getUniformLocation(this.shader, 'u_Zoom');
+        // console.log(this.zoom_center)
+    }
 
-        // window.requestAnimationFrame(WebGLRenderer.drawScene);
+    drawScene(zoom_center, zoom, iters) {
+        this.glapi.uniform2f(this.zoom_center, zoom_center[0], zoom_center[1]);
+        this.glapi.uniform1i(this.max_iterations_uniform, iters);
+        this.glapi.uniform1f(this.zoom, zoom);
+
+        this.glapi.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.glapi.clear(this.glapi.COLOR_BUFFER_BIT);
+        this.glapi.drawArrays(this.glapi.TRIANGLES, 0, 3);
     }
 }   
 
-gl = null;
+// let audio_tag = document.createElement('audio');
+// let name_tag = document.getElementById("name");
+// let tracks = [
+//     ('Acediast - Accurst', document.getElementById('audio1').href),
+//     ('Acediast - Hide', document.getElementById('audio2').href),
+//     ('Acediast - Malformed Canticle Of Despondent Languor', document.getElementById('audio3').href),
+//     ('Acediast - Omni', document.getElementById('audio4').href),
+// ];
+// let nowplays = -1;
+
+// function next_track() {
+//     nowplays += 1;
+//     if (nowplays == 4) nowplays = 0;
+//     name_tag.value = `Music: ${ tracks[nowplays][0] }`
+//     audio_tag.src = tracks[0][1]; 
+//     audio_tag.controls = true;
+
+//     console.log('!');
+// }
+
+// next_track()
+
+let canvas_element = document.getElementById('glcanvas');
+let detail_input = document.getElementById('detail');
+
+let zoom_center = [0.0, 0.0];
+let target_zoom_center = [0.0, 0.0];
+let zoom_size = 4.0;
+let stop_zooming = true;
+let zoom_factor = 1.0;
+let zoom_acc = [0.0, 0.0];
+let speed = 0.004;
+let enable_zoom = false;
+
+let max_iterations = 500;
+let iterations = max_iterations;
+let min_iterations = 200;
+let iterations_step = 5;
+
+let gl_renderer = new WebGLRenderer(canvas_element);
+
+function renderFrame() {
+    gl_renderer.drawScene(zoom_center, zoom_size, iterations);
+    iterations = Number(detail_input.value);
+
+    if (enable_zoom) {
+        zoom_center[0] += zoom_acc[0]; zoom_center[1] += zoom_acc[1]; 
+        zoom_size *= zoom_factor;
+
+        // window.requestAnimationFrame(renderFrame);
+    }
+}
 
 function start() {
-    gl = new WebGLRenderer(document.getElementById("glcanvas"));
+    this.window.requestAnimationFrame(renderFrame);
+    window.addEventListener('keydown', function (e) {
+        if (e.key == 'ArrowUp') {
+            zoom_acc = [0.0, speed * zoom_size];
+        } else if (e.key == 'ArrowDown') {
+            zoom_acc = [0.0, -(speed * zoom_size)];
+        }
+        if (e.key == 'ArrowLeft') {
+            zoom_acc = [-(speed * zoom_size), 0.0];
+        } else if (e.key == 'ArrowRight') {
+            zoom_acc = [speed * zoom_size, 0.0];
+        } 
+        
+        console.log(e.key);
+
+        if (e.key == '-') {
+            zoom_factor = 1.01;
+        } else if (e.key == '=') {
+            zoom_factor = 0.99;
+        }
+
+        console.log(zoom_center, zoom_acc);
+
+        enable_zoom = true;
+        window.requestAnimationFrame(renderFrame);
+    })
+
+    window.addEventListener('keyup', function (e) {
+        zoom_acc = [0.0, 0.0];
+        zoom_factor = 1.0;
+        enable_zoom = false;
+    });
+
+    canvas_element.oncontextmenu = function (e) { return false; }
 }

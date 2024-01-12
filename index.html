@@ -14,10 +14,38 @@ void main() {
 }
         </script>
         <script id="shader-fs" type="x-shader/x-fragment">
+/* This code is partly copied from https://gpfault.net/posts/mandelbrot-webgl.txt.html */
 precision highp float;
 
+uniform vec2 u_ZoomCenter;
+uniform float u_Zoom;
+uniform int u_MaxIterations;
+
+vec2 f(vec2 x, vec2 c) {
+	return mat2(x,-x.y,x.x)*x + c;
+}
+
+vec3 palette(int iters) {
+    float r = float(iters) / float(u_MaxIterations);
+    return vec3((1.0 - r) * (1.0 - r) * (1.0 - r) * (1.0 - r));
+}
+
 void main() {
-    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+  vec2 uv = gl_FragCoord.xy / vec2(800.0, 800.0);
+  vec2 c = u_ZoomCenter + (uv * 4.0 - vec2(2.0)) * (u_Zoom / 4.0);
+  vec2 x = vec2(0.0);
+  bool escaped = false;
+  int iterations = 0;    
+  for (int i = 0; i < 10000; i++) {
+    if (i > u_MaxIterations) break;
+    iterations = i;
+    x = f(x, c);
+    if (length(x) > 2.0) {
+      escaped = true;
+      break;
+    }
+  }
+  gl_FragColor = escaped ? vec4(palette(iterations), 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
 }
         </script>
 
@@ -27,15 +55,28 @@ void main() {
             crossorigin="anonymous"
             defer
         ></script>
-        <script type="text/javascript" src="./Main.js"></script>
+        <!-- <link href="./Acediast - Accurst.mp3" id="audio1" />
+        <link href="./Acediast - Hide.mp3" id="audio2" />
+        <link href="./Acediast - Malformed.mp3" id="audio3" />
+        <link href="./Acediast - Omni.mp3" id="audio4" /> -->
         <!-- <script type="text/javascript" src="./MainMinimal.js"></script>  -->
     </head>
-    <body onload="start()">
+    <body onload="start()" id="body">
         <script id="shader-vs" type="x-shader/x-vertex" src="./setvertex.glsl"></script>
         <script id="shader-vf" type="x-shader/x-fragment" src="./setfragment.glsl"></script>
-        <canvas id="glcanvas" style="width: 100%; height: 100%">
+        <div class="panel">
+            <form>
+                <label>Detail</label><br>
+                <input type="range" min="100" max="2000" id="detail" value="500" />
+            </form>
+        </div>
+        <div class="panel" style="left:auto; right: 16px">
+            <p id="name">Now plays: Acediast - Accurst</p>
+        </div>
+        <canvas id="glcanvas" width="1280" height="800" style="width: 100%; height: 100%; border:1px solid white">
             Your browser doesn't appear to support the HTML5
             <code>&lt;canvas&gt;</code> element.
         </canvas>
+        <script type="text/javascript" src="./Main.js"></script>
     </body>      
 </html>
